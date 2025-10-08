@@ -1,0 +1,11 @@
+# Main application dependencies
+pyyaml>=6.0
+requests>=2.26.0
+
+# UconDB client from git repository
+git+https://github.com/ivmfnal/ucondb.git#egg=ucondb
+
+# Note: The 'conftoolp' package is a system-level dependency provided by
+# the artdaq_database environment. It is not available on PyPI and should
+# not be listed here. The application expects the environment to be
+# correctly sourced before execution.

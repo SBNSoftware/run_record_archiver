@@ -1,0 +1,64 @@
+# General application settings
+app:
+  work_dir: "/tmp/run_record_archiver"
+  import_state_file: "/tmp/run_record_archiver/importer_state.json"
+  import_failure_log: "/tmp/run_record_archiver/import_failures.log"
+  migrate_state_file: "/tmp/run_record_archiver/migrator_state.json"
+  migrate_failure_log: "/tmp/run_record_archiver/migrate_failures.log"
+  lock_file: "/tmp/run_record_archiver/.archiver.lock"
+  batch_size: 50
+  parallel_workers: 4
+  run_process_retries: 2
+  retry_delay_seconds: 5
+  log_level: "INFO"
+  log_file: "/tmp/run_record_archiver/archiver.log"
+
+# Source filesystem settings for the Import stage
+source_files:
+  run_records_dir: "/daq/run_records"
+
+# Intermediate ArtdaqDB settings for both stages
+artdaq_db:
+  # Environment setup (choose one)
+  products_dir: "/path/to/artdaq-products"
+  spack_dir: null # "/path/to/spack"
+
+  # Path to the artdaq_database setup script
+  setup_script: "/path/to/artdaq_database/setup"
+
+  # Directory containing schema.fcl
+  fcl_conf_dir: "/path/to/artdaq_database/conf"
+
+  # URI for the intermediate database
+  database_uri: "filesystemdb:///path/to/your/filesystem/db" # e.g., "mongodb://user:pass@host:port/database"
+
+  # Optional: for high-performance importing
+  use_bulkloader: false
+  remote_host: null # "hostname" if bulkloader runs remotely
+
+# Destination UconDB settings for the Migration stage
+ucon_db:
+  server_url: "https://your-ucondb-host.fnal.gov/ucondb-test"
+  folder_name: "run_records"
+  object_name: "configuration"
+  timeout_seconds: 10
+  writer_user: "your_username"
+  writer_password: "your_password"
+
+# Settings for email notifications on failure
+reporting:
+  send_email_on_error: false
+  recipient_email: "user@example.com"
+  sender_email: "archiver@fnal.gov"
+  smtp_host: "smtp.your_organization.com"
+  smtp_port: 587
+  smtp_use_tls: true
+  smtp_user: null # Optional, for SMTP servers that require authentication
+  smtp_password: null # Optional
+
+# Optional: Settings for performance metric reporting to Carbon
+carbon:
+  enabled: false
+  host: "your-carbon-host.local"
+  port: 2003
+  metric_prefix: "dune.run_archiver.dev"

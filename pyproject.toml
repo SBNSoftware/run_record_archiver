@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "run_record_archiver"
+version = "2.0.0"
+description = "A utility to archive run records from filesystem to artdaqDB and then to UconDB."
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pyyaml>=6.0",
+    "requests>=2.26.0",
+    "ucondb @ git+https://github.com/ivmfnal/ucondb.git"
+]
+
+[project.scripts]
+run-record-archiver = "run_record_archiver.__main__:main"
