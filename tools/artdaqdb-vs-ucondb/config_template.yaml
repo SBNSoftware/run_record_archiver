@@ -1,0 +1,75 @@
+# ArtdaqDB vs UconDB Comparison Configuration Template
+# Copy this file and customize for your environment
+
+# Application configuration
+app:
+    work_dir: "/tmp/run_record_archiver_artdaqdb_ucondb_compare"
+    import_state_file: "/tmp/run_record_archiver_artdaqdb_ucondb_compare/importer_state.json"
+    import_failure_log: "/tmp/run_record_archiver_artdaqdb_ucondb_compare/import_failures.log"
+    migrate_state_file: "/tmp/run_record_archiver_artdaqdb_ucondb_compare/migrator_state.json"
+    migrate_failure_log: "/tmp/run_record_archiver_artdaqdb_ucondb_compare/migrate_failures.log"
+    lock_file: "/tmp/run_record_archiver_artdaqdb_ucondb_compare/.archiver.lock"
+    batch_size: 5
+    parallel_workers: 2
+    run_process_retries: 2
+    retry_delay_seconds: 3
+    log_level: "INFO"
+    log_file: null
+
+# ArtdaqDB configuration (source/intermediate database)
+artdaq_db:
+    # Path to artdaq_database config directory
+    fcl_conf_dir: "/daq/software/database/config"
+
+    # Database URI - can be MongoDB or FilesystemDB
+    # MongoDB example: "mongodb://username:password@host:27017/database_name"
+    # FilesystemDB example: "filesystemdb:///path/to/database"
+    database_uri: "mongodb://10.226.36.42:27017/test_db_archive"
+
+    # Performance options
+    use_tools: true # Use CLI tools (bulkdownloader) for better performance
+    remote_host: null # Optional: run exports on remote host via SSH
+
+# UconDB configuration (destination/archive)
+ucon_db:
+    # Server URL (must end with /app)
+    server_url: "https://dbdata0vm.fnal.gov:9443/sbnd_on_ucon_prod/app"
+
+    # Folder and object names
+    folder_name: "test01"
+    object_name: "configuration"
+
+    # Timeout for downloads (increase for large blobs)
+    timeout_seconds: 10
+
+    # Authentication credentials
+    writer_user: "your_username"
+    writer_password: "your_password"
+
+# Source filesystem (not used but required by Config)
+source_files:
+    run_records_dir: "/daq/run_records"
+
+# FHiCL conversion/generation configuration
+# Specify which files to convert (txt → fcl) and generate
+fhiclize_generate:
+    - boot # boot.txt → boot.fcl
+    - metadata # metadata.txt → metadata.fcl
+    - known_boardreaders_list # known_boardreaders_list.txt → known_boardreaders_list.fcl
+    - RunHistory # Generate RunHistory.fcl from metadata
+    - RunHistory2 # Generate RunHistory2.fcl from stop-time
+    - settings # settings.txt → settings.fcl
+    - setup # setup.txt → setup.fcl
+    - environment # environment.txt → environment.fcl
+    - ranks # ranks.txt → ranks.fcl
+
+# Reporting configuration (not used for comparison)
+reporting:
+    email:
+        enabled: false
+    slack:
+        enabled: false
+
+# Carbon metrics (not used for comparison)
+carbon:
+    enabled: false

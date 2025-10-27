@@ -1,87 +1,132 @@
 #!/usr/bin/env bash
 
-# ==============================================================================
-# Run Record Archiver Execution Script
-# ==============================================================================
-# This script is the recommended way to run the Run Record Archiver application.
-# It handles all necessary environment setup, including sourcing the artdaq
-# software stack and managing a local Python virtual environment.
-#
-# All command-line arguments passed to this script will be forwarded directly
-# to the 'run-record-archiver' Python application.
-# ==============================================================================
 
-# --- Script Configuration ---
-# Stop the script if any command fails
 set -e
-# Ensure that pipelines fail on the first command that fails
 set -o pipefail
 
-# --- User Configuration ---
-# PLEASE EDIT THE FOLLOWING VARIABLES TO MATCH YOUR SYSTEM'S ENVIRONMENT
-#
-# Path to the main setup script for your artdaq software stack (UPS or Spack).
-# Example for DUNE CVMFS: "/cvmfs/dune.opensciencegrid.org/products/dune/setup_dune.sh"
-ARTDAQ_SETUP_PATH="/path/to/your/experiment/setup"
+ulimit -c 0
 
-# The version of the artdaq_database product to set up.
-ARTDAQ_DB_VERSION="v1_11_02"
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
 
-# The qualifiers for the artdaq_database product.
-# Example: "e20:prof:s122"
-ARTDAQ_DB_QUALS="e20:prof:s122"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 
+log_info() {
+  if [[ "${QUIET}" != "true" ]]; then
+    echo "$@"
+  fi
+}
 
-# --- Script Logic ---
+log_info "INFO: Project root directory: ${SCRIPT_DIR}"
 
-# 1. Determine the script's location to find other project files.
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-echo "INFO: Project root directory is: ${SCRIPT_DIR}"
-
-# 2. Source the artdaq software environment.
-# This is a critical step to make the 'conftoolp' library available.
-echo "INFO: Sourcing artdaq environment..."
-if [ ! -f "${ARTDAQ_SETUP_PATH}" ]; then
-    echo "ERROR: ARTDAQ_SETUP_PATH not found at '${ARTDAQ_SETUP_PATH}'"
-    echo "ERROR: Please edit this script to provide the correct path."
-    exit 1
-fi
-
-# shellcheck source=/dev/null
-source "${ARTDAQ_SETUP_PATH}"
-setup artdaq_database "${ARTDAQ_DB_VERSION}" -q "${ARTDAQ_DB_QUALS}"
-
-# Verify that the environment was set up correctly
-if ! command -v conftoolp &> /dev/null; then
-    echo "ERROR: 'conftoolp' command not found after sourcing the environment."
-    echo "ERROR: Please check your ARTDAQ_SETUP_PATH, ARTDAQ_DB_VERSION, and ARTDAQ_DB_QUALS."
-    exit 1
-fi
-echo "INFO: artdaq environment setup successful."
-
-# 3. Set up and activate the Python virtual environment.
-VENV_DIR="${SCRIPT_DIR}/.venv"
-if [ ! -d "${VENV_DIR}" ]; then
-    echo "INFO: Python virtual environment not found. Creating it now..."
-    python3 -m venv "${VENV_DIR}"
-    echo "INFO: Activating new virtual environment."
-    # shellcheck source=/dev/null
-    source "${VENV_DIR}/bin/activate"
-    echo "INFO: Installing/updating Python dependencies..."
-    pip install --upgrade pip
-    # Install the project in editable mode, which handles all dependencies
-    # from pyproject.toml, including the git-based ucondb dependency.
-    pip install -e "${SCRIPT_DIR}"
-    echo "INFO: Dependency installation complete."
+ENV_FILE="${SCRIPT_DIR}/archiver.env"
+if [[ -f "${ENV_FILE}" ]]; then
+  log_info "INFO: Loading environment variables from ${ENV_FILE}"
+  set -a
+  source "${ENV_FILE}"
+  set +a
 else
-    # shellcheck source=/dev/null
-    source "${VENV_DIR}/bin/activate"
-    echo "INFO: Activated existing Python virtual environment."
+  log_info "INFO: No archiver.env file found, using system environment"
 fi
 
-# 4. Execute the main application, passing all script arguments to it.
-# The 'exec' command replaces the shell process with the python process.
-echo "INFO: Starting the Run Record Archiver application..."
-echo "----------------------------------------------------------------------"
+INIT_VENV=false
+QUIET=false
+FILTERED_ARGS=()
+HAS_CONFIG=false
+IS_HELP=false
 
-exec run-record-archiver "$@"
+VALID_FLAGS=(
+  "-h" "--help" "/?" "/h" "/help"
+  "-v" "--verbose"
+  "-q" "--quiet"
+  "--incremental"
+  "--compare-state"
+  "--validate"
+  "--import-only"
+  "--migrate-only"
+  "--retry-failed-import"
+  "--retry-failed-migrate"
+  "--report-status"
+  "--recover-import-state"
+  "--recover-migrate-state"
+)
+
+for arg in "$@"; do
+  if [[ "$arg" == "--init-venv" ]]; then
+    INIT_VENV=true
+  elif [[ "$arg" == "--quiet" ]] || [[ "$arg" == "-q" ]]; then
+    QUIET=true
+  else
+    FILTERED_ARGS+=("$arg")
+
+    if [[ "$arg" == "-h" ]] || [[ "$arg" == "--help" ]] || [[ "$arg" == "/?" ]] || [[ "$arg" == "/h" ]] || [[ "$arg" == "/help" ]]; then
+      IS_HELP=true
+    fi
+
+    is_flag=false
+    for flag in "${VALID_FLAGS[@]}"; do
+      if [[ "$arg" == "$flag" ]]; then
+        is_flag=true
+        break
+      fi
+    done
+
+    if [[ "$is_flag" == "false" ]]; then
+      HAS_CONFIG=true
+    fi
+  fi
+done
+
+if [[ "${HAS_CONFIG}" == "false" ]] && [[ "${IS_HELP}" == "false" ]]; then
+  FILTERED_ARGS=("config.yaml" "${FILTERED_ARGS[@]}")
+fi
+
+VENV_DIR="${SCRIPT_DIR}/.venv"
+VENV_CREATED=false
+
+if [[ "${INIT_VENV}" == "true" ]]; then
+  if [[ -d "${VENV_DIR}" ]]; then
+    log_info "INFO: Deleting existing virtual environment..."
+    rm -rf "${VENV_DIR}"
+  fi
+  log_info "INFO: Creating fresh Python virtual environment..."
+  python3 -m venv "${VENV_DIR}"
+  VENV_CREATED=true
+elif [[ ! -d "${VENV_DIR}" ]]; then
+  log_info "INFO: Creating Python virtual environment..."
+  python3 -m venv "${VENV_DIR}"
+  VENV_CREATED=true
+else
+  log_info "INFO: Using existing virtual environment..."
+fi
+
+log_info "INFO: Activating virtual environment..."
+source "${VENV_DIR}/bin/activate"
+export PYTHONPATH="${SCRIPT_DIR}/lib:${PYTHONPATH}"
+
+if [[ -d "${SCRIPT_DIR}/lib" ]]; then
+  export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"
+  export PATH="${SCRIPT_DIR}/lib:${PATH}"
+  log_info "INFO: Added ${SCRIPT_DIR}/lib to LD_LIBRARY_PATH and PATH"
+fi
+
+if [[ "${VENV_CREATED}" == "true" ]]; then
+  log_info "INFO: Installing/updating dependencies..."
+  if [[ "${QUIET}" == "true" ]]; then
+    pip install --upgrade pip &>/dev/null
+    pip install -r "${SCRIPT_DIR}/requirements.txt" &>/dev/null
+  else
+    pip install --upgrade pip
+    pip install -r "${SCRIPT_DIR}/requirements.txt"
+  fi
+fi
+
+log_info "INFO: Environment setup complete."
+
+log_info "INFO: Starting Run Record Archiver..."
+if [[ "${QUIET}" == "true" ]]; then
+  exec python -m run_record_archiver "${FILTERED_ARGS[@]}" &>/dev/null
+else
+  exec python -m run_record_archiver "${FILTERED_ARGS[@]}"
+fi

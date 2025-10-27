@@ -1,64 +1,166 @@
-# General application settings
+# ============================================================================
+# Run Record Archiver Configuration Template
+# ============================================================================
+# This is a template configuration file for the Run Record Archiver.
+# Copy this file to 'config.yaml' and customize for your environment.
+#
+# This configuration supports variable expansion:
+#   - Environment variables: ${VAR} or ${VAR:-default}
+#   - Parameter references: ${param} (same section) or ${section.param} (cross-section)
+#
+# Create an 'archiver.env' file to define environment variables that will be
+# automatically loaded by run_archiver.sh and run_tests.sh
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Application Settings
+# ----------------------------------------------------------------------------
 app:
-  work_dir: "/tmp/run_record_archiver"
-  import_state_file: "/tmp/run_record_archiver/importer_state.json"
-  import_failure_log: "/tmp/run_record_archiver/import_failures.log"
-  migrate_state_file: "/tmp/run_record_archiver/migrator_state.json"
-  migrate_failure_log: "/tmp/run_record_archiver/migrate_failures.log"
-  lock_file: "/tmp/run_record_archiver/.archiver.lock"
-  batch_size: 50
-  parallel_workers: 4
-  run_process_retries: 2
-  retry_delay_seconds: 5
-  log_level: "INFO"
-  log_file: "/tmp/run_record_archiver/archiver.log"
+    # Primary working directory for all archiver files
+    # Recommended: Use ${WORK_DIR} environment variable
+    work_dir: "${WORK_DIR:-/tmp/run_record_archiver}"
 
-# Source filesystem settings for the Import stage
+    # State tracking files - these use parameter references to ${work_dir}
+    # These paths are automatically derived from work_dir
+    import_state_file: "${work_dir}/importer_state.json"
+    import_failure_log: "${work_dir}/import_failures.log"
+    migrate_state_file: "${work_dir}/migrator_state.json"
+    migrate_failure_log: "${work_dir}/migrate_failures.log"
+    lock_file: "${work_dir}/.archiver.lock"
+
+    # Processing parameters
+    batch_size: 5              # Maximum runs to process per execution
+    parallel_workers: 2          # Number of concurrent threads
+    run_process_retries: 2       # Retry attempts for failed runs
+    retry_delay_seconds: 3       # Delay between retries (seconds)
+
+    # Logging configuration
+    log_level: "INFO"            # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    log_file: "${work_dir}/archiver.log"  # Log file path (null for stdout only)
+
+fhiclize_generate:
+    - boot
+    - metadata
+    - known_boardreaders_list
+    - RunHistory
+    - RunHistory2
+    - settings
+    - setup
+    - environment
+    - ranks
+
+# Advanced fuzzing configuration (typically not used in production)
+# This section provides more granular control over fuzzing behavior
+app_fuzz:
+    random_skip_percent: 0       # % of runs to skip during fuzzing
+    random_skip_retry: false     # If true, skipped runs won't retry (permanent failure)
+    random_error_percent: 0      # % of runs to error during fuzzing
+    random_error_retry: false    # If true, errored runs won't retry (permanent failure)
+
+# ----------------------------------------------------------------------------
+# Source Filesystem Settings (Import Stage)
+# ----------------------------------------------------------------------------
 source_files:
-  run_records_dir: "/daq/run_records"
+    # Directory containing run record subdirectories
+    # Each run should be in a subdirectory named by run number
+    # Example: /daq/run_records/12345/
+    # Recommended: Use ${RUN_RECORDS_DIR} environment variable
+    run_records_dir: "${RUN_RECORDS_DIR:-/daq/run_records}"
 
-# Intermediate ArtdaqDB settings for both stages
+# ----------------------------------------------------------------------------
+# Intermediate Database Settings (ArtdaqDB)
+# ----------------------------------------------------------------------------
+# ArtdaqDB stores run configurations after import from filesystem,
+# before migration to UconDB
 artdaq_db:
-  # Environment setup (choose one)
-  products_dir: "/path/to/artdaq-products"
-  spack_dir: null # "/path/to/spack"
+    # Directory containing schema.fcl configuration file
+    # This defines the database schema for storing run records
+    # Typically found in the artdaq_database installation
+    fcl_conf_dir: "/path/to/artdaq_database/conf"
 
-  # Path to the artdaq_database setup script
-  setup_script: "/path/to/artdaq_database/setup"
+    # Database connection URI
+    # IMPORTANT: Specify the complete database path including collection/archive name
+    # The URI is used exactly as configured (no automatic suffix appending)
+    # Formats:
+    #   - FilesystemDB: filesystemdb:///absolute/path/to/db_archive
+    #   - MongoDB: mongodb://user:pass@host:port/database_archive
+    # Recommended: Use ${ARTDAQDB_URL} environment variable
+    database_uri: "${ARTDAQDB_URL:-filesystemdb:///path/to/your/filesystem/db_archive}"
 
-  # Directory containing schema.fcl
-  fcl_conf_dir: "/path/to/artdaq_database/conf"
+    # Performance optimization options
+    use_tools: true             # Use CLI tools (bulkloader/bulkdownloader) instead of Python API
+    remote_host: null            # Remote host for CLI tools (requires SSH access)
 
-  # URI for the intermediate database
-  database_uri: "filesystemdb:///path/to/your/filesystem/db" # e.g., "mongodb://user:pass@host:port/database"
-
-  # Optional: for high-performance importing
-  use_bulkloader: false
-  remote_host: null # "hostname" if bulkloader runs remotely
-
-# Destination UconDB settings for the Migration stage
+# ----------------------------------------------------------------------------
+# Destination Database Settings (UconDB)
+# ----------------------------------------------------------------------------
+# UconDB is the permanent archive for run configurations
 ucon_db:
-  server_url: "https://your-ucondb-host.fnal.gov/ucondb-test"
-  folder_name: "run_records"
-  object_name: "configuration"
-  timeout_seconds: 10
-  writer_user: "your_username"
-  writer_password: "your_password"
+    # Server URL - MUST end with /app
+    # Format: https://hostname:port/instance/app
+    # The UconDB library automatically adds necessary path components
+    # Example: https://ucondb.example.com:9443/sbnd_on_ucon_prod/app
+    # Recommended: Use ${UCONDB_URL} environment variable
+    server_url: "${UCONDB_URL:-https://your-ucondb-host.example.com:9443/ucondb-instance/app}"
 
-# Settings for email notifications on failure
+    # UconDB organizational structure
+    folder_name: "test01"   # Folder within UconDB to store runs
+    object_name: "configuration" # Object type identifier
+
+    # Connection settings
+    timeout_seconds: 10          # API request timeout
+
+    # Authentication credentials
+    # Recommended: Use ${UCONDB_USER} and ${UCONDB_PASSWORD} environment variables
+    writer_user: "${UCONDB_USER:-your_username}"
+    writer_password: "${UCONDB_PASSWORD:-your_password}"
+
+# ----------------------------------------------------------------------------
+# Notification Settings
+# ----------------------------------------------------------------------------
+# Configure email and/or Slack notifications for failure alerts
 reporting:
-  send_email_on_error: false
-  recipient_email: "user@example.com"
-  sender_email: "archiver@fnal.gov"
-  smtp_host: "smtp.your_organization.com"
-  smtp_port: 587
-  smtp_use_tls: true
-  smtp_user: null # Optional, for SMTP servers that require authentication
-  smtp_password: null # Optional
+    # Email notification configuration
+    email:
+        enabled: false           # Set to true to enable email alerts
 
-# Optional: Settings for performance metric reporting to Carbon
+        # Recipient configuration
+        # Recommended: Use ${NOTIFY_EMAIL_LIST} environment variable
+        recipient_email: "${NOTIFY_EMAIL_LIST:-user@example.com}"
+        sender_email: "archiver@example.com"  # From address
+
+        # SMTP server configuration
+        smtp_host: "smtp.example.com"  # SMTP server hostname
+        smtp_port: 25             # SMTP server port (25, 587, 465)
+        smtp_use_tls: false       # Enable STARTTLS encryption
+
+        # Optional SMTP authentication (leave null if not required)
+        smtp_user: null          # Username for SMTP auth
+        smtp_password: null      # Password for SMTP auth
+
+    # Slack notification configuration
+    slack:
+        enabled: false           # Set to true to enable Slack alerts
+
+        # Bot configuration
+        # Create a Slack app and add 'chat:write' bot scope to get token
+        bot_token: "xoxb-your-bot-token-here"  # Slack Bot User OAuth Token
+        channel: "#run-archiver-alerts"        # Channel name or ID
+
+        # Optional: User mentions for urgent alerts
+        # Format: "U1234ABCD,U5678EFGH" (comma-separated Slack user IDs)
+        mention_users: null
+
+# ----------------------------------------------------------------------------
+# Performance Metrics (Optional)
+# ----------------------------------------------------------------------------
+# Send performance metrics to Carbon/Graphite for monitoring
 carbon:
-  enabled: false
-  host: "your-carbon-host.local"
-  port: 2003
-  metric_prefix: "dune.run_archiver.dev"
+    enabled: false               # Set to true to enable metrics
+    host: "your-carbon-host.local"  # Carbon server hostname/IP
+    port: 2003                  # Carbon line receiver port
+
+    # Metric namespace prefix
+    # Recommended: Use ${EXPERIMENT_NAME} environment variable
+    # Example metrics: demo.run_archiver.dev
+    metric_prefix: "${EXPERIMENT_NAME:-demo}.run_archiver.dev"

@@ -1,0 +1,6 @@
+lib/*.so*
+lib/bulkdownloader
+lib/bulkloader
+lib/conftool
+lib/fhicl-dump
+lib/fhicl-expand

@@ -1,0 +1,15 @@
+# Requirements for comparison tools
+# These tools reuse parts of the run_record_archiver application
+
+# Core dependencies
+pyyaml>=6.0
+requests>=2.26.0
+psycopg2-binary>=2.9.0  # Required by ucondb for PostgreSQL access
+
+# UconDB client (for UconDB comparison tool)
+git+https://github.com/ivmfnal/ucondb.git#egg=ucondb
+
+# Note: The ArtdaqDB comparison tool requires 'conftoolp' from the
+# artdaq_database environment. This is a system-level dependency provided
+# by the artdaq_database suite and is not available on PyPI. The comparison
+# scripts will source the required environment setup before execution.
