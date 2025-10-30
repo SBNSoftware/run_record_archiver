@@ -4,3 +4,7 @@ lib/bulkloader
 lib/conftool
 lib/fhicl-dump
 lib/fhicl-expand
+.venv
+__pycache__
+archiver.env
+config.yaml
