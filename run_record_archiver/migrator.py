@@ -48,6 +48,10 @@ class Migrator:
             last_success = state.get_incremental_start_run(self._config.app.migrate_state_file)
             self._logger.info('Incremental mode: filtering runs > %d', last_success)
             runs_to_migrate = [run for run in runs_to_migrate if run > last_success]
+        if self._config.app.exclude_most_recent_run and runs_to_migrate:
+            most_recent = max(runs_to_migrate)
+            self._logger.info('Excluding most recent run from migration: %d', most_recent)
+            runs_to_migrate = [run for run in runs_to_migrate if run < most_recent]
         self._logger.info('Migration Stage: Found %d runs to migrate.', len(runs_to_migrate))
         if runs_to_migrate:
             self._logger.info('Run range: %d to %d', min(runs_to_migrate), max(runs_to_migrate))

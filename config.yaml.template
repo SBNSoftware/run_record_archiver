@@ -33,6 +33,7 @@ app:
     parallel_workers: 2          # Number of concurrent threads
     run_process_retries: 2       # Retry attempts for failed runs
     retry_delay_seconds: 3       # Delay between retries (seconds)
+    exclude_most_recent_run: false  # Exclude the most recent run from processing (both import and migrate)
 
     # Logging configuration
     log_level: "INFO"            # DEBUG, INFO, WARNING, ERROR, CRITICAL
