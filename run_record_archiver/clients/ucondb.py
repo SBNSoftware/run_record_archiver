@@ -34,7 +34,8 @@ class UconDBClient:
     def get_existing_runs(self) -> Set[int]:
         try:
             results = self.client.lookup_versions(folder_name=self._config.folder_name, object_name=self._config.object_name)
-            return {int(r['key']) for r in results if r.get('key', '').isdigit()}
+            if none_keys := [(i, r) for i, r in enumerate(results) if r.get('key') is None]: self._logger.debug('Records with None keys at indices: %s', none_keys)
+            return {int(r['key']) for r in results if r.get('key') is not None and str(r['key']).isdigit()}
         except Exception as e:
             raise UconDBError(f'Failed to look up versions in UconDB: {e}') from e
 
