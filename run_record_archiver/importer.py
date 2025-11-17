@@ -41,6 +41,10 @@ class Importer:
             last_run = state.get_incremental_start_run(self._config.app.import_state_file)
             self._logger.info('Incremental mode: filtering runs > %d', last_run)
             candidate_runs = [r for r in candidate_runs if r > last_run]
+        if self._config.app.exclude_most_recent_run and candidate_runs:
+            most_recent = max(candidate_runs)
+            self._logger.info('Excluding most recent run from import: %d', most_recent)
+            candidate_runs = [r for r in candidate_runs if r < most_recent]
         self._logger.info('Import Stage: Found %d runs to import.', len(candidate_runs))
         if candidate_runs:
             self._logger.info('Run range: %d to %d', min(candidate_runs), max(candidate_runs))

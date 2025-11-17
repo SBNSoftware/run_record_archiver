@@ -167,6 +167,7 @@ class AppConfig:
         self.parallel_workers = int(data.get('parallel_workers', 2))
         self.run_process_retries = int(data.get('run_process_retries', 2))
         self.retry_delay_seconds = int(data.get('retry_delay_seconds', 3))
+        self.exclude_most_recent_run = bool(data.get('exclude_most_recent_run', False))
         self.log_level = str(data.get('log_level', 'INFO')).upper()
         log_file_path = data.get('log_file')
         self.log_file: Optional[Path] = Path(log_file_path) if log_file_path else None
